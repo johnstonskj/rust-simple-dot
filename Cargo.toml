@@ -1,0 +1,19 @@
+[package]
+name = "simple_dot"
+description = "Simple API for creating GraphViz DOT files."
+version = "0.1.0"
+authors = ["Simon Johnston <johnstonskj@gmail.com>"]
+edition = "2021"
+documentation = "https://docs.rs/simple_dot/"
+repository = "https://github.com/johnstonskj/simple_dot.git"
+license = "MIT"
+readme = "README.md"
+publish = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+all-features = true
+
+[dependencies]
+paste = "1.0.8"
+unique_id = "0.1.5"
