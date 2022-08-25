@@ -7,7 +7,7 @@ More detailed description, with
 
  */
 
-use crate::style::{
+use crate::attributes::{
     Attributes, ClusterAttributes, EdgeAttributes, GraphAttributes, NodeAttributes, Styled,
 };
 use crate::{Edge, Identified, Identifier, Node};
@@ -647,103 +647,3 @@ where
 // ------------------------------------------------------------------------------------------------
 // Modules
 // ------------------------------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use crate::graph::{Cluster, Graph, RootGraph};
-    use crate::node::Node;
-    use crate::style::{
-        ClusterAttributes, ClusterStyles, Color, EdgeAttributes, FontName, GraphAttributes,
-        GraphStyles, LabelString, NodeAttributes, NodeStyles, Shape, Styled,
-    };
-    use crate::Identifier;
-    use std::str::FromStr;
-
-    #[test]
-    fn test_cluster_example() {
-        let fonts = FontName::list(vec![
-            FontName::family("Helvetica").unwrap(),
-            FontName::family("Arial").unwrap(),
-            FontName::family("sans-serif").unwrap(),
-        ]);
-        let root = RootGraph::new(Identifier::from_str("G").unwrap(), false, true)
-            .set_attributes(
-                GraphAttributes::default()
-                    .font_name(fonts.clone())
-                    .style(vec![GraphStyles::Filled]),
-            )
-            .set_default_node_attributes(NodeAttributes::default().font_name(fonts.clone()))
-            .set_default_edge_attributes(EdgeAttributes::default().font_name(fonts.clone()))
-            .add_sub_graph(
-                Cluster::new(0i64.into())
-                    .set_attributes(
-                        ClusterAttributes::default()
-                            .label(LabelString::from_str("process #1").unwrap())
-                            .color(Color::named("lightgrey").unwrap().into())
-                            .style(vec![ClusterStyles::Filled]),
-                    )
-                    .set_default_node_attributes(
-                        NodeAttributes::default()
-                            .color(Color::named("white").unwrap().into())
-                            .style(vec![NodeStyles::Filled]),
-                    )
-                    .chain(vec![
-                        Node::new(Identifier::from_str("a0").unwrap()),
-                        Node::new(Identifier::from_str("a1").unwrap()),
-                        Node::new(Identifier::from_str("a2").unwrap()),
-                        Node::new(Identifier::from_str("a3").unwrap()),
-                    ]),
-            )
-            .add_sub_graph(
-                Cluster::new(1i64.into())
-                    .set_attributes(
-                        ClusterAttributes::default()
-                            .label(LabelString::from_str("process #2").unwrap())
-                            .color(Color::named("blue").unwrap().into()),
-                    )
-                    .set_default_node_attributes(
-                        NodeAttributes::default().style(vec![NodeStyles::Filled]),
-                    )
-                    .chain(vec![
-                        Node::new(Identifier::from_str("b0").unwrap()),
-                        Node::new(Identifier::from_str("b1").unwrap()),
-                        Node::new(Identifier::from_str("b2").unwrap()),
-                        Node::new(Identifier::from_str("b3").unwrap()),
-                    ]),
-            )
-            .add_node(
-                Node::new(Identifier::from_str("start").unwrap())
-                    .set_attributes(NodeAttributes::default().shape(Shape::m_diamond())),
-            )
-            .add_node(
-                Node::new(Identifier::from_str("end").unwrap())
-                    .set_attributes(NodeAttributes::default().shape(Shape::m_square())),
-            )
-            .add_edge_between(
-                Identifier::from_str("a1").unwrap(),
-                Identifier::from_str("b3").unwrap(),
-            )
-            .add_edge_between(
-                Identifier::from_str("b2").unwrap(),
-                Identifier::from_str("a3").unwrap(),
-            )
-            .add_edge_between(
-                Identifier::from_str("b2").unwrap(),
-                Identifier::from_str("a3").unwrap(),
-            )
-            .add_edge_between(
-                Identifier::from_str("a3").unwrap(),
-                Identifier::from_str("a0").unwrap(),
-            )
-            .add_edge_between(
-                Identifier::from_str("a3").unwrap(),
-                Identifier::from_str("end").unwrap(),
-            )
-            .add_edge_between(
-                Identifier::from_str("b3").unwrap(),
-                Identifier::from_str("end").unwrap(),
-            );
-
-        println!("{}", root);
-    }
-}

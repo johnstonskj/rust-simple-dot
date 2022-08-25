@@ -8,9 +8,9 @@ More detailed description, with
  */
 
 use crate::{
+    attributes::{Attribute, Attributes, ClusterAttributes, GraphAttributes, Styled},
     error::Error,
     graph::{Cluster, Graph, SubGraph, SubGraphKind},
-    style::{Attribute, Attributes, ClusterAttributes, GraphAttributes, Styled},
     Identified, Identifier, RootGraph,
 };
 

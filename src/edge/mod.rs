@@ -8,7 +8,7 @@ More detailed description, with
  */
 
 use crate::{
-    style::{EdgeAttributes, Styled},
+    attributes::{EdgeAttributes, Styled},
     Identified, Identifier, Node,
 };
 use std::fmt::Display;
@@ -205,12 +205,10 @@ impl Edge {
 
 #[cfg(test)]
 mod tests {
-    use crate::style::LabelString;
-
-    use super::*;
+    use crate::{Edge, Identifier};
 
     #[test]
-    fn test_simple_edges() {
+    fn test_undirected_edge_to_string() {
         let a = Identifier::new_unchecked("a");
         let b = Identifier::new_unchecked("b");
 
@@ -218,21 +216,18 @@ mod tests {
             Edge::new(a.clone(), b.clone()).to_string(),
             String::from("a -- b\n")
         );
+    }
+
+    #[test]
+    fn test_directed_edge_to_string() {
+        let a = Identifier::new_unchecked("a");
+        let b = Identifier::new_unchecked("b");
 
         assert_eq!(
             Edge::new(a.clone(), b.clone())
                 .set_directed(true)
                 .to_string(),
             String::from("a -> b\n")
-        );
-
-        assert_eq!(
-            Edge::new(a, b)
-                .set_attributes(
-                    EdgeAttributes::default().label(LabelString::new_unchecked("a to b"))
-                )
-                .to_string(),
-            String::from("a -- b [ label = \"a to b\" ]\n")
         );
     }
 }

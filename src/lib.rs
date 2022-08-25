@@ -162,7 +162,7 @@ pub use node::Node;
 pub mod edge;
 pub use edge::Edge;
 
-pub mod style;
+pub mod attributes;
 
 pub mod visitor;
 
