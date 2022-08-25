@@ -2864,7 +2864,7 @@ impl Shape {
     pub fn lpromoter() -> Self {
         Self(String::from("lpromoter"))
     }
-    
+
     pub fn record() -> Self {
         Self(String::from("record"))
     }

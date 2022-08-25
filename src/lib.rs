@@ -151,8 +151,6 @@ fn is_valid_id_string(s: &str) -> bool {
 // Modules
 // ------------------------------------------------------------------------------------------------
 
-pub mod colors;
-
 pub mod error;
 
 pub mod graph;

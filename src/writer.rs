@@ -269,13 +269,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::write_graph;
     use crate::graph::{Cluster, Graph, RootGraph};
     use crate::node::Node;
     use crate::style::{
         ClusterAttributes, ClusterStyles, Color, EdgeAttributes, FontName, GraphAttributes,
         LabelString, NodeAttributes, NodeStyles, Shape, Styled,
     };
+    use crate::writer::write_graph;
     use crate::writer::Indenter;
     use crate::Identifier;
     use std::str::FromStr;
