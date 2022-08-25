@@ -49,11 +49,37 @@ More detailed description, with
     dyn_drop,
 )]
 
-// use ...
+use unique_id::string::StringGenerator;
+use unique_id::Generator;
+
+#[macro_use]
+mod macros;
 
 // ------------------------------------------------------------------------------------------------
 // Public Types
 // ------------------------------------------------------------------------------------------------
+
+pub trait Identified {
+    fn id(&self) -> &Identifier;
+
+    fn set_id(self, id: Identifier) -> Self
+    where
+        Self: Sized;
+
+    fn set_id_auto(self, prefix: Identifier) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_id(Identifier::new_unchecked(&format!(
+            "{}{}",
+            prefix,
+            StringGenerator::default().next_id()
+        )))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identifier(String);
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -63,12 +89,71 @@ More detailed description, with
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
+string_newtype!(Identifier, "Identifier", is_valid_id_string);
+
+impl From<i64> for Identifier {
+    fn from(v: i64) -> Self {
+        Self::new_unchecked(&v.to_string())
+    }
+}
+
+impl From<usize> for Identifier {
+    fn from(v: usize) -> Self {
+        Self::new_unchecked(&v.to_string())
+    }
+}
+
+impl From<f64> for Identifier {
+    fn from(v: f64) -> Self {
+        Self::new_unchecked(&v.to_string())
+    }
+}
+
+impl Identifier {
+    pub fn new_unchecked(s: &str) -> Self {
+        Self(s.to_string())
+    }
+
+    pub fn new_auto() -> Self {
+        Self(format!("A{}", StringGenerator::default().next_id()))
+    }
+
+    pub fn prefix(self, prefix: Identifier) -> Self {
+        Self(format!("{}{}", prefix, self))
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Private Functions
+// ------------------------------------------------------------------------------------------------
+
+#[inline]
+fn is_valid_id_string(s: &str) -> bool {
+    let mut chars = s.chars();
+    if let Some(first) = chars.next() {
+        if first.is_ascii_alphabetic() || first == '_' {
+            chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        } else if first.is_ascii_digit() || first == '-' || first == '.' {
+            chars.all(|c| c.is_ascii_digit() || c == '.')
+        } else if first == '"' && s.ends_with('"') {
+            true
+        } else if first == '<' && s.ends_with('>') {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 // Modules
 // ------------------------------------------------------------------------------------------------
 
-#[macro_use]
-mod macros;
+pub mod colors;
+
+pub mod error;
 
 pub mod graph;
 pub use graph::RootGraph;
@@ -80,3 +165,7 @@ pub mod edge;
 pub use edge::Edge;
 
 pub mod style;
+
+pub mod visitor;
+
+pub mod writer;

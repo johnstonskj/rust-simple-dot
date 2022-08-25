@@ -7,7 +7,10 @@ More detailed description, with
 
  */
 
-use crate::{style::EdgeStyle, Node};
+use crate::{
+    style::{EdgeAttributes, Styled},
+    Identified, Identifier, Node,
+};
 use std::fmt::Display;
 
 // ------------------------------------------------------------------------------------------------
@@ -20,12 +23,17 @@ use std::fmt::Display;
 
 #[derive(Clone, Debug)]
 pub struct Edge {
-    head: String,
-    tail: String,
+    head: Identifier,
+    tail: Identifier,
     directed: bool,
-    label: Option<String>,
-    style: Option<EdgeStyle>,
+    attributes: Option<EdgeAttributes>,
 }
+
+// #[derive(Clone, Debug)]
+// pub struct End {
+//     id: Identifier,
+//     attributes: Option<EndAttributes>,
+// }
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -39,127 +47,153 @@ pub struct Edge {
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-display_to_inner!(Edge, true);
-
-impl Edge {
-    pub fn new(head: &str, tail: &str) -> Self {
-        Self {
-            head: head.to_string(),
-            tail: tail.to_string(),
-            label: Default::default(),
-            style: Default::default(),
-            directed: Default::default(),
-        }
-    }
-
-    pub fn new_from(head: &Node, tail: &Node) -> Self {
-        Self {
-            head: head.id().to_string(),
-            tail: tail.id().to_string(),
-            label: Default::default(),
-            style: Default::default(),
-            directed: Default::default(),
-        }
-    }
-
-    pub fn labeled(head: &str, tail: &str, label: &str) -> Self {
-        Self {
-            head: head.to_string(),
-            tail: tail.to_string(),
-            label: Some(label.to_string()),
-            style: Default::default(),
-            directed: Default::default(),
-        }
-    }
-
-    pub fn labeled_from(head: &Node, tail: &Node, label: &str) -> Self {
-        Self {
-            head: head.id().to_string(),
-            tail: tail.id().to_string(),
-            label: Some(label.to_string()),
-            style: Default::default(),
-            directed: Default::default(),
-        }
-    }
-
-    pub fn head(&self) -> &String {
-        &self.head
-    }
-
-    pub fn set_head(&mut self, head: &str) -> &mut Self {
-        self.head = head.to_owned();
-        self
-    }
-
-    pub fn tail(&self) -> &String {
-        &self.tail
-    }
-
-    pub fn set_tail(&mut self, tail: &str) -> &mut Self {
-        self.tail = tail.to_owned();
-        self
-    }
-
-    pub fn label(&self) -> Option<&String> {
-        self.label.as_ref()
-    }
-
-    pub fn set_label(&mut self, label: &str) -> &mut Self {
-        self.label = Some(label.to_owned());
-        self
-    }
-
-    pub fn unset_label(&mut self) -> &mut Self {
-        self.label = None;
-        self
-    }
-
-    pub fn style(&self) -> Option<&EdgeStyle> {
-        self.style.as_ref()
-    }
-
-    pub fn set_style(&mut self, style: EdgeStyle) -> &mut Self {
-        self.style = Some(style);
-        self
-    }
-
-    pub fn unset_style(&mut self) -> &mut Self {
-        self.style = None;
-        self
-    }
-
-    pub(crate) fn set_directed(mut self, directed: bool) -> Self {
-        self.directed = directed;
-        self
-    }
-
-    pub(crate) fn inner_fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-        indent_level: u32,
-        _in_block: bool,
-    ) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {} {}",
-            self.head(),
-            if self.directed { "->" } else { "--" },
-            self.tail()
-        )?;
-        if self.label().is_some() || self.style().is_some() {
-            write!(f, " [ ")?;
-            if let Some(label) = self.label() {
-                write!(f, "label = {:?}; ", label)?;
-            }
-            if let Some(style) = self.style() {
-                style.inner_fmt(f, indent_level, false)?;
-            }
-            writeln!(f, "]")
+impl Display for Edge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string_no_attributes())?;
+        if let Some(attributes) = self.attributes() {
+            writeln!(f, " {}", attributes)
         } else {
             writeln!(f)
         }
     }
 }
+
+impl From<(Identifier, Identifier)> for Edge {
+    fn from(pair: (Identifier, Identifier)) -> Self {
+        Self::new(pair.0, pair.1)
+    }
+}
+
+impl Styled<EdgeAttributes> for Edge {
+    fn attributes(&self) -> Option<&EdgeAttributes> {
+        self.attributes.as_ref()
+    }
+
+    fn set_attributes(self, attributes: EdgeAttributes) -> Self
+    where
+        Self: Sized,
+    {
+        let mut self_mut = self;
+        self_mut.attributes = Some(attributes);
+        self_mut
+    }
+}
+
+impl Edge {
+    pub fn new(head: Identifier, tail: Identifier) -> Self {
+        Self {
+            head,
+            tail,
+            attributes: Default::default(),
+            directed: Default::default(),
+        }
+    }
+
+    pub fn new_from(head: &Node, tail: &Node) -> Self {
+        Self::new(head.id().clone(), tail.id().clone())
+    }
+
+    pub fn chain(nodes: &[Node]) -> Vec<Edge> {
+        if nodes.len() < 2 {
+            Vec::new()
+        } else {
+            nodes
+                .windows(2)
+                .map(|pair| Edge::new_from(&pair[0], &pair[1]))
+                .collect()
+        }
+    }
+
+    pub fn circular_chain(nodes: &[Node]) -> Vec<Edge> {
+        if nodes.is_empty() {
+            Vec::new()
+        } else {
+            let mut edges: Vec<Edge> = nodes
+                .windows(2)
+                .map(|pair| Edge::new_from(&pair[0], &pair[1]))
+                .collect();
+            edges.push(Edge::new_from(
+                nodes.first().unwrap(),
+                nodes.last().unwrap(),
+            ));
+            edges
+        }
+    }
+
+    pub fn head(&self) -> &Identifier {
+        &self.head
+    }
+
+    pub fn tail(&self) -> &Identifier {
+        &self.tail
+    }
+
+    pub fn is_directed(&self) -> bool {
+        self.directed
+    }
+
+    pub(crate) fn set_directed(self, directed: bool) -> Self {
+        let mut self_mut = self;
+        self_mut.directed = directed;
+        self_mut
+    }
+
+    pub fn to_string_no_attributes(&self) -> String {
+        format!(
+            "{} {} {}",
+            self.head(),
+            if self.directed { "->" } else { "--" },
+            self.tail()
+        )
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+// impl From<Identifier> for End {
+//     fn from(id: Identifier) -> Self {
+//         Self::new(id)
+//     }
+// }
+
+// impl Identified for End {
+//     fn id(&self) -> &Identifier {
+//         &self.id
+//     }
+
+//     fn set_id(self, id: Identifier) -> Self
+//     where
+//         Self: Sized,
+//     {
+//         let mut self_mut = self;
+//         self_mut.id = id;
+//         self_mut
+//     }
+// }
+
+// impl Styled<EndAttributes> for End {
+//     fn attributes(&self) -> Option<&EndAttributes> {
+//         self.attributes.as_ref()
+//     }
+
+//     fn set_attributes(self, attributes: EndAttributes) -> Self
+//     where
+//         Self: Sized,
+//     {
+//         let mut self_mut = self;
+//         self_mut.attributes = Some(attributes);
+//         self_mut
+//     }
+// }
+
+// impl End {
+//     pub fn new(id: Identifier) -> Self {
+//         Self {
+//             id,
+//             attributes: Default::default(),
+//         }
+//     }
+// }
 
 // ------------------------------------------------------------------------------------------------
 // Private Functions
@@ -171,18 +205,34 @@ impl Edge {
 
 #[cfg(test)]
 mod tests {
+    use crate::style::LabelString;
+
     use super::*;
 
     #[test]
     fn test_simple_edges() {
-        assert_eq!(Edge::new("a", "b").to_string(), String::from("a -- b\n"));
+        let a = Identifier::new_unchecked("a");
+        let b = Identifier::new_unchecked("b");
+
         assert_eq!(
-            Edge::labeled("a", "b", "a to b").to_string(),
-            String::from("a -- b [ label = \"a to b\"; ]\n")
+            Edge::new(a.clone(), b.clone()).to_string(),
+            String::from("a -- b\n")
         );
+
         assert_eq!(
-            Edge::new("a", "b").set_directed(true).to_string(),
+            Edge::new(a.clone(), b.clone())
+                .set_directed(true)
+                .to_string(),
             String::from("a -> b\n")
+        );
+
+        assert_eq!(
+            Edge::new(a, b)
+                .set_attributes(
+                    EdgeAttributes::default().label(LabelString::new_unchecked("a to b"))
+                )
+                .to_string(),
+            String::from("a -- b [ label = \"a to b\" ]\n")
         );
     }
 }

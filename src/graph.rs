@@ -7,13 +7,11 @@ More detailed description, with
 
  */
 
-use crate::style::{EdgeStyle, GraphOptions, GraphStyle, NodeStyle};
-use crate::{Edge, Node};
-use paste::paste;
-use std::collections::HashMap;
+use crate::style::{
+    Attributes, ClusterAttributes, EdgeAttributes, GraphAttributes, NodeAttributes, Styled,
+};
+use crate::{Edge, Identified, Identifier, Node};
 use std::fmt::Display;
-use unique_id::string::StringGenerator;
-use unique_id::Generator;
 
 // ------------------------------------------------------------------------------------------------
 // Public Macros
@@ -23,18 +21,96 @@ use unique_id::Generator;
 // Public Types
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Clone, Debug)]
-pub struct RootGraph {
-    strict: bool,
-    directed: bool,
-    inner: Graph,
+pub trait Graph<A>: Identified + Styled<A>
+where
+    A: Attributes,
+{
+    fn is_directed(&self) -> bool;
+
+    fn default_graph_attributes(&self) -> Option<&GraphAttributes>;
+    fn set_default_graph_attributes(self, default_graph_attributes: GraphAttributes) -> Self
+    where
+        Self: Sized;
+
+    fn default_node_attributes(&self) -> Option<&NodeAttributes>;
+    fn set_default_node_attributes(self, default_node_attributes: NodeAttributes) -> Self
+    where
+        Self: Sized;
+
+    fn default_edge_attributes(&self) -> Option<&EdgeAttributes>;
+    fn set_default_edge_attributes(self, default_edge_attributes: EdgeAttributes) -> Self
+    where
+        Self: Sized;
+
+    fn nodes(&self) -> Nodes<'_>;
+    fn has_nodes(&self) -> bool;
+    fn add_node(self, node: Node) -> Self
+    where
+        Self: Sized;
+    fn add_nodes(self, nodes: Vec<Node>) -> Self
+    where
+        Self: Sized;
+
+    fn edges(&self) -> Edges<'_>;
+    fn has_edges(&self) -> bool;
+    fn add_edge(self, edge: Edge) -> Self
+    where
+        Self: Sized;
+    fn add_edges(self, edges: Vec<Edge>) -> Self
+    where
+        Self: Sized;
+
+    fn add_edge_between(self, from: Identifier, to: Identifier) -> Self
+    where
+        Self: Sized,
+    {
+        self.add_edge(Edge::new(from, to))
+    }
+
+    fn sub_graphs(&self) -> SubGraphs<'_>;
+    fn has_sub_graphs(&self) -> bool;
+    fn add_sub_graph<G>(self, sub_graph: G) -> Self
+    where
+        G: Into<SubGraphKind>,
+        Self: Sized;
+    fn add_sub_graphs<G>(self, sub_graphs: Vec<G>) -> Self
+    where
+        G: Into<SubGraphKind>,
+        Self: Sized;
+
+    fn chain(self, nodes: Vec<Node>) -> Self;
+    fn circular_chain(self, nodes: Vec<Node>) -> Self;
 }
 
 #[derive(Clone, Debug)]
-pub struct SubGraph {
-    cluster: bool,
-    inner: Graph,
+pub enum SubGraphKind {
+    Graph(SubGraph),
+    Cluster(Cluster),
 }
+
+#[derive(Debug)]
+pub struct Nodes<'a> {
+    iter: std::slice::Iter<'a, Node>,
+}
+
+#[derive(Debug)]
+pub struct Edges<'a> {
+    iter: std::slice::Iter<'a, Edge>,
+}
+
+#[derive(Debug)]
+pub struct SubGraphs<'a> {
+    iter: std::slice::Iter<'a, SubGraphKind>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RootGraph(GraphImpl<GraphAttributes>);
+
+#[derive(Clone, Debug)]
+pub struct SubGraph(GraphImpl<GraphAttributes>);
+
+#[derive(Clone, Debug)]
+pub struct Cluster(GraphImpl<ClusterAttributes>);
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -45,177 +121,333 @@ pub struct SubGraph {
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-struct Graph {
-    id: String,
-    label: Option<String>,
-    options: Option<GraphOptions>,
-    style: Option<GraphStyle>,
-    default_node_style: Option<NodeStyle>,
-    default_edge_style: Option<EdgeStyle>,
-    nodes: HashMap<String, Node>,
+struct GraphImpl<A>
+where
+    A: Attributes,
+{
+    kind: GraphImplKind,
+    directed: bool,
+    id: Identifier,
+    attributes: Option<A>,
+    default_graph_attributes: Option<GraphAttributes>,
+    default_node_attributes: Option<NodeAttributes>,
+    default_edge_attributes: Option<EdgeAttributes>,
+    nodes: Vec<Node>,
     edges: Vec<Edge>,
-    sub_graphs: Vec<SubGraph>,
+    sub_graphs: Vec<SubGraphKind>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum GraphImplKind {
+    Root(bool),
+    Cluster,
+    Graph,
+}
+// ------------------------------------------------------------------------------------------------
+// Implementation Macros
+// ------------------------------------------------------------------------------------------------
+
+macro_rules! impl_graph_trait_for {
+    ($type:ty, $attr_type:ty) => {
+        impl Identified for $type {
+            fn id(&self) -> &Identifier {
+                &self.0.id
+            }
+
+            fn set_id(self, id: Identifier) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.id = id;
+                self_mut
+            }
+        }
+
+        impl Styled<$attr_type> for $type {
+            fn attributes(&self) -> Option<&$attr_type> {
+                self.0.attributes.as_ref()
+            }
+
+            fn set_attributes(self, attributes: $attr_type) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.attributes = Some(attributes);
+                self_mut
+            }
+        }
+
+        impl Graph<$attr_type> for $type {
+            fn is_directed(&self) -> bool {
+                self.0.directed
+            }
+
+            fn default_graph_attributes(&self) -> Option<&GraphAttributes> {
+                self.0.default_graph_attributes.as_ref()
+            }
+
+            fn set_default_graph_attributes(self, default_graph_attributes: GraphAttributes) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.default_graph_attributes = Some(default_graph_attributes);
+                self_mut
+            }
+
+            fn default_node_attributes(&self) -> Option<&NodeAttributes> {
+                self.0.default_node_attributes.as_ref()
+            }
+
+            fn set_default_node_attributes(self, default_node_attributes: NodeAttributes) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.default_node_attributes = Some(default_node_attributes);
+                self_mut
+            }
+
+            fn default_edge_attributes(&self) -> Option<&EdgeAttributes> {
+                self.0.default_edge_attributes.as_ref()
+            }
+
+            fn set_default_edge_attributes(self, default_edge_attributes: EdgeAttributes) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.default_edge_attributes = Some(default_edge_attributes);
+                self_mut
+            }
+
+            fn nodes(&self) -> Nodes<'_> {
+                Nodes {
+                    iter: self.0.nodes.iter(),
+                }
+            }
+
+            fn has_nodes(&self) -> bool {
+                !self.0.nodes.is_empty()
+            }
+
+            fn add_node(self, node: Node) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.nodes.push(node);
+                self_mut
+            }
+
+            fn add_nodes(self, nodes: Vec<Node>) -> Self
+            where
+                Self: Sized,
+            {
+                let mut self_mut = self;
+                self_mut.0.nodes.extend(nodes);
+                self_mut
+            }
+
+            fn edges(&self) -> Edges<'_> {
+                Edges {
+                    iter: self.0.edges.iter(),
+                }
+            }
+
+            fn has_edges(&self) -> bool {
+                !self.0.edges.is_empty()
+            }
+
+            fn add_edge(self, edge: Edge) -> Self
+            where
+                Self: Sized,
+            {
+                let edge = edge.set_directed(self.is_directed());
+                let mut self_mut = self;
+                self_mut.0.edges.push(edge);
+                self_mut
+            }
+
+            fn add_edges(self, edges: Vec<Edge>) -> Self
+            where
+                Self: Sized,
+            {
+                let directed = self.0.directed;
+                println!("dir={};", directed);
+                let mut self_mut = self;
+                self_mut
+                    .0
+                    .edges
+                    .extend(edges.into_iter().map(|e| e.set_directed(directed)));
+                self_mut
+            }
+
+            fn sub_graphs(&self) -> SubGraphs<'_> {
+                SubGraphs {
+                    iter: self.0.sub_graphs.iter(),
+                }
+            }
+
+            fn has_sub_graphs(&self) -> bool {
+                !self.0.sub_graphs.is_empty()
+            }
+
+            fn add_sub_graph<G>(self, sub_graph: G) -> Self
+            where
+                G: Into<SubGraphKind>,
+                Self: Sized,
+            {
+                let sub_graph = sub_graph.into().set_directed(self.is_directed());
+                let mut self_mut = self;
+                self_mut.0.sub_graphs.push(sub_graph);
+                self_mut
+            }
+
+            fn add_sub_graphs<G>(self, sub_graphs: Vec<G>) -> Self
+            where
+                G: Into<SubGraphKind>,
+                Self: Sized,
+            {
+                let directed = self.0.directed;
+                let mut self_mut = self;
+                self_mut.0.sub_graphs.extend(
+                    sub_graphs
+                        .into_iter()
+                        .map(|s| s.into().set_directed(directed)),
+                );
+                self_mut
+            }
+
+            fn chain(self, nodes: Vec<Node>) -> Self {
+                let edges = Edge::chain(&nodes);
+                let mut self_mut = self.add_edges(edges);
+                self_mut.0.nodes.extend(nodes);
+                self_mut
+            }
+
+            fn circular_chain(self, nodes: Vec<Node>) -> Self {
+                let edges = Edge::circular_chain(&nodes);
+                let mut self_mut = self.add_edges(edges);
+                self_mut.0.nodes.extend(nodes);
+                self_mut
+            }
+        }
+
+        impl $type {
+            fn set_directed(self, directed: bool) -> Self {
+                let mut self_mut = self;
+                self_mut.0.sub_graphs = self_mut
+                    .0
+                    .sub_graphs
+                    .into_iter()
+                    .map(|s| s.set_directed(directed))
+                    .collect();
+                self_mut.0.edges = self_mut
+                    .0
+                    .edges
+                    .into_iter()
+                    .map(|e| e.set_directed(directed))
+                    .collect();
+                self_mut.0.directed = directed;
+                self_mut
+            }
+        }
+    };
 }
 
 // ------------------------------------------------------------------------------------------------
 // Implementations
 // ------------------------------------------------------------------------------------------------
 
-impl Default for Graph {
-    fn default() -> Self {
-        Self {
-            id: StringGenerator::default().next_id(),
-            label: Default::default(),
-            options: Default::default(),
-            style: Default::default(),
-            default_node_style: Default::default(),
-            default_edge_style: Default::default(),
-            nodes: Default::default(),
-            edges: Default::default(),
-            sub_graphs: Default::default(),
-        }
+impl Display for SubGraphKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Graph(g) => g.to_string(),
+                Self::Cluster(c) => c.to_string(),
+            }
+        )
     }
 }
 
-impl Graph {
-    pub fn new(id: &str) -> Self {
-        assert!(!id.is_empty());
-        Self {
-            id: id.to_owned(),
-            ..Default::default()
-        }
+impl From<SubGraph> for SubGraphKind {
+    fn from(v: SubGraph) -> Self {
+        Self::Graph(v)
+    }
+}
+
+impl From<Cluster> for SubGraphKind {
+    fn from(v: Cluster) -> Self {
+        Self::Cluster(v)
+    }
+}
+
+impl SubGraphKind {
+    #[inline]
+    pub fn is_sub_graph(&self) -> bool {
+        matches!(self, Self::Graph(_))
     }
 
-    pub fn labeled(label: &str) -> Self {
-        Self {
-            id: StringGenerator::default().next_id(),
-            label: Some(label.to_owned()),
-            ..Default::default()
-        }
+    #[inline]
+    pub fn is_cluster_graph(&self) -> bool {
+        matches!(self, Self::Cluster(_))
     }
 
-    fn anonymous() -> Self {
-        Self {
-            id: String::new(),
-            ..Default::default()
+    fn set_directed(self, directed: bool) -> Self {
+        match self {
+            Self::Graph(v) => Self::Graph(v.set_directed(directed)),
+            Self::Cluster(v) => Self::Cluster(v.set_directed(directed)),
         }
-    }
-
-    fn is_anonymous(&self) -> bool {
-        self.id.is_empty()
     }
 }
 
 // ------------------------------------------------------------------------------------------------
 
+impl<'a> Iterator for Nodes<'a> {
+    type Item = &'a Node;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl<'a> Iterator for Edges<'a> {
+    type Item = &'a Edge;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl<'a> Iterator for SubGraphs<'a> {
+    type Item = &'a SubGraphKind;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+
 impl Default for RootGraph {
     fn default() -> Self {
-        Self {
-            strict: Default::default(),
-            directed: Default::default(),
-            inner: Default::default(),
-        }
+        let inner: GraphImpl<GraphAttributes> = GraphImpl::anonymous(GraphImplKind::Root(false));
+        Self(inner)
     }
 }
 
-impl From<Graph> for RootGraph {
-    fn from(v: Graph) -> Self {
-        Self {
-            strict: Default::default(),
-            directed: Default::default(),
-            inner: v,
-        }
-    }
-}
-
-display_to_inner!(RootGraph);
-
-impl AsRef<Graph> for RootGraph {
-    fn as_ref(&self) -> &Graph {
-        &self.inner
-    }
-}
-
-impl AsMut<Graph> for RootGraph {
-    fn as_mut(&mut self) -> &mut Graph {
-        &mut self.inner
-    }
-}
-
-impl From<RootGraph> for Graph {
-    fn from(v: RootGraph) -> Self {
-        v.inner
-    }
-}
-
-impl RootGraph {
-    pub fn digraph() -> Self {
-        Self {
-            strict: Default::default(),
-            directed: Default::default(),
-            inner: Default::default(),
-        }
-    }
-
-    pub fn new(id: &str) -> Self {
-        Self {
-            strict: Default::default(),
-            directed: Default::default(),
-            inner: Graph::new(id),
-        }
-    }
-
-    pub fn labeled(label: &str) -> Self {
-        Self {
-            strict: Default::default(),
-            directed: Default::default(),
-            inner: Graph::labeled(label),
-        }
-    }
-
-    pub fn new_directed(id: &str) -> Self {
-        Self {
-            strict: Default::default(),
-            directed: true,
-            inner: Graph::new(id),
-        }
-    }
-
-    pub fn directed_labeled(label: &str) -> Self {
-        Self {
-            strict: Default::default(),
-            directed: true,
-            inner: Graph::labeled(label),
-        }
-    }
-
-    pub fn is_strict(&self) -> bool {
-        self.strict
-    }
-
-    pub fn set_strict(&mut self, strict: bool) -> &mut Self {
-        self.strict = strict;
-        self
-    }
-
-    pub fn is_directed(&self) -> bool {
-        self.directed
-    }
-
-    pub(crate) fn set_directed(&mut self, directed: bool) -> &mut Self {
-        // TODO: update flag on all owned edges.
-        self.directed = directed;
-        self
-    }
-
-    shared_graph_impl!();
-
-    pub(crate) fn inner_fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-        indent_level: u32,
-        in_block: bool,
-    ) -> std::fmt::Result {
+impl Display for RootGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_strict() {
             write!(f, "strict ")?;
         }
@@ -223,8 +455,31 @@ impl RootGraph {
             write!(f, "di")?;
         }
         writeln!(f, "graph {} {{", self.id())?;
-        self.graph_fmt(f, indent_level + 1, in_block)?;
-        write!(f, "}}")
+        display_graph_common(self, f)?;
+        writeln!(f, "}}")
+    }
+}
+
+impl_graph_trait_for!(RootGraph, GraphAttributes);
+
+impl RootGraph {
+    pub fn anonymous(strict: bool, directed: bool) -> Self {
+        Self(GraphImpl::anonymous(GraphImplKind::Root(strict))).set_directed(directed)
+    }
+
+    pub fn new(id: Identifier, strict: bool, directed: bool) -> Self {
+        Self(GraphImpl::new(GraphImplKind::Root(strict), id)).set_directed(directed)
+    }
+
+    pub fn is_strict(&self) -> bool {
+        match self.0.kind {
+            GraphImplKind::Root(v) => v,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn is_directed(&self) -> bool {
+        self.0.directed
     }
 }
 
@@ -232,110 +487,106 @@ impl RootGraph {
 
 impl Default for SubGraph {
     fn default() -> Self {
-        Self {
-            cluster: Default::default(),
-            inner: Default::default(),
-        }
+        Self(Default::default())
     }
 }
 
-impl From<Graph> for SubGraph {
-    fn from(v: Graph) -> Self {
-        Self {
-            cluster: Default::default(),
-            inner: v,
-        }
+impl Display for SubGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "subgraph {} {{", self.id())?;
+        display_graph_common(self, f)?;
+        writeln!(f, "}}")
     }
 }
 
-display_to_inner!(SubGraph);
-
-impl AsRef<Graph> for SubGraph {
-    fn as_ref(&self) -> &Graph {
-        &self.inner
-    }
-}
-
-impl AsMut<Graph> for SubGraph {
-    fn as_mut(&mut self) -> &mut Graph {
-        &mut self.inner
-    }
-}
-
-impl From<SubGraph> for Graph {
-    fn from(v: SubGraph) -> Self {
-        v.inner
-    }
-}
+impl_graph_trait_for!(SubGraph, GraphAttributes);
 
 impl SubGraph {
-    pub fn cluster() -> Self {
-        Self {
-            cluster: Default::default(),
-            inner: Default::default(),
-        }
-    }
-
     pub fn anonymous() -> Self {
-        Self {
-            cluster: Default::default(),
-            inner: Graph::anonymous(),
-        }
+        Self(GraphImpl::anonymous(GraphImplKind::Graph))
     }
 
-    pub fn new(id: &str) -> Self {
-        Self {
-            cluster: Default::default(),
-            inner: Graph::new(id),
-        }
+    pub fn new(id: Identifier) -> Self {
+        Self(GraphImpl::new(GraphImplKind::Graph, id))
     }
+}
 
-    pub fn labeled(label: &str) -> Self {
-        Self {
-            cluster: Default::default(),
-            inner: Graph::labeled(label),
-        }
+// ------------------------------------------------------------------------------------------------
+
+impl Default for Cluster {
+    fn default() -> Self {
+        Self(Default::default())
     }
+}
 
-    pub fn new_cluster(id: &str) -> Self {
-        Self {
-            cluster: true,
-            inner: Graph::new(id),
-        }
-    }
-
-    pub fn cluster_labeled(label: &str) -> Self {
-        Self {
-            cluster: true,
-            inner: Graph::labeled(label),
-        }
-    }
-
-    pub fn is_cluster(&self) -> bool {
-        self.cluster
-    }
-
-    pub fn set_cluster(&mut self, cluster: bool) -> &mut Self {
-        self.cluster = cluster;
-        self
-    }
-
-    shared_graph_impl!();
-
-    pub(crate) fn inner_fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-        indent_level: u32,
-        in_block: bool,
-    ) -> std::fmt::Result {
-        writeln!(
-            f,
-            "subgraph {}{} {{",
-            if self.is_cluster() { "cluster_" } else { "" },
-            self.id()
-        )?;
-        self.graph_fmt(f, indent_level + 1, in_block)?;
+impl Display for Cluster {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "subgraph  cluster_{} {{", self.id())?;
+        display_graph_common(self, f)?;
         writeln!(f, "}}")
+    }
+}
+
+impl_graph_trait_for!(Cluster, ClusterAttributes);
+
+impl Cluster {
+    pub fn anonymous() -> Self {
+        Self(GraphImpl::anonymous(GraphImplKind::Cluster))
+    }
+
+    pub fn new(id: Identifier) -> Self {
+        Self(GraphImpl::new(GraphImplKind::Cluster, id))
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+
+impl Default for GraphImplKind {
+    fn default() -> Self {
+        Self::Graph
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+
+impl<A> Default for GraphImpl<A>
+where
+    A: Attributes,
+{
+    fn default() -> Self {
+        Self {
+            kind: Default::default(),
+            directed: false,
+            id: Identifier::new_auto(),
+            attributes: Default::default(),
+            default_graph_attributes: Default::default(),
+            default_node_attributes: Default::default(),
+            default_edge_attributes: Default::default(),
+            nodes: Default::default(),
+            edges: Default::default(),
+            sub_graphs: Default::default(),
+        }
+    }
+}
+
+impl<A> GraphImpl<A>
+where
+    A: Attributes,
+{
+    fn anonymous(kind: GraphImplKind) -> Self {
+        Self {
+            kind,
+            ..Default::default()
+        }
+    }
+
+    fn new(kind: GraphImplKind, id: Identifier) -> Self {
+        Self {
+            kind,
+            id,
+            ..Default::default()
+        }
     }
 }
 
@@ -343,28 +594,155 @@ impl SubGraph {
 // Private Functions
 // ------------------------------------------------------------------------------------------------
 
+fn display_graph_common<A>(
+    graph: &impl Graph<A>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result
+where
+    A: Attributes,
+{
+    if graph.has_attributes() {
+        if let Some(style) = graph.attributes() {
+            writeln!(f, "{}", style)?;
+        }
+        writeln!(f)?;
+    }
+    if let Some(default_graph_style) = graph.default_graph_attributes() {
+        writeln!(f, "graph [")?;
+        writeln!(f, "{}", default_graph_style)?;
+        writeln!(f, "]")?;
+    }
+    if let Some(default_node_style) = graph.default_node_attributes() {
+        writeln!(f, "node [")?;
+        writeln!(f, "{}", default_node_style)?;
+        writeln!(f, "]")?;
+    }
+    if let Some(default_edge_style) = graph.default_edge_attributes() {
+        writeln!(f, "edge [")?;
+        writeln!(f, "{}", default_edge_style)?;
+        writeln!(f, "]")?;
+    }
+
+    if graph.has_nodes() {
+        writeln!(
+            f,
+            "{}",
+            graph
+                .nodes()
+                .map(|n| n.id().to_string())
+                .collect::<Vec<String>>()
+                .join(" ")
+        )?;
+        writeln!(f)?;
+    }
+    for edge in graph.edges() {
+        write!(f, "{}", edge)?;
+    }
+    for sub_graph in graph.sub_graphs() {
+        write!(f, "{}", sub_graph)?;
+    }
+    Ok(())
+}
+
 // ------------------------------------------------------------------------------------------------
 // Modules
 // ------------------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::graph::{Cluster, Graph, RootGraph};
+    use crate::node::Node;
+    use crate::style::{
+        ClusterAttributes, ClusterStyles, Color, EdgeAttributes, FontName, GraphAttributes,
+        GraphStyles, LabelString, NodeAttributes, NodeStyles, Shape, Styled,
+    };
+    use crate::Identifier;
+    use std::str::FromStr;
 
     #[test]
     fn test_cluster_example() {
-        let mut root = RootGraph::new_directed("G");
-        let root_graph = root.as_mut();
-
-        let mut cluster = SubGraph::cluster_labeled("process #1");
-        let cluster_graph = cluster.as_mut();
-        cluster_graph.set_id("0");
-        root_graph.add_sub_graph(cluster);
-
-        let mut cluster = SubGraph::cluster_labeled("process #2");
-        let cluster_graph = cluster.as_mut();
-        cluster_graph.set_id("1");
-        root_graph.add_sub_graph(cluster.clone());
+        let fonts = FontName::list(vec![
+            FontName::family("Helvetica").unwrap(),
+            FontName::family("Arial").unwrap(),
+            FontName::family("sans-serif").unwrap(),
+        ]);
+        let root = RootGraph::new(Identifier::from_str("G").unwrap(), false, true)
+            .set_attributes(
+                GraphAttributes::default()
+                    .font_name(fonts.clone())
+                    .style(vec![GraphStyles::Filled]),
+            )
+            .set_default_node_attributes(NodeAttributes::default().font_name(fonts.clone()))
+            .set_default_edge_attributes(EdgeAttributes::default().font_name(fonts.clone()))
+            .add_sub_graph(
+                Cluster::new(0i64.into())
+                    .set_attributes(
+                        ClusterAttributes::default()
+                            .label(LabelString::from_str("process #1").unwrap())
+                            .color(Color::named("lightgrey").unwrap().into())
+                            .style(vec![ClusterStyles::Filled]),
+                    )
+                    .set_default_node_attributes(
+                        NodeAttributes::default()
+                            .color(Color::named("white").unwrap().into())
+                            .style(vec![NodeStyles::Filled]),
+                    )
+                    .chain(vec![
+                        Node::new(Identifier::from_str("a0").unwrap()),
+                        Node::new(Identifier::from_str("a1").unwrap()),
+                        Node::new(Identifier::from_str("a2").unwrap()),
+                        Node::new(Identifier::from_str("a3").unwrap()),
+                    ]),
+            )
+            .add_sub_graph(
+                Cluster::new(1i64.into())
+                    .set_attributes(
+                        ClusterAttributes::default()
+                            .label(LabelString::from_str("process #2").unwrap())
+                            .color(Color::named("blue").unwrap().into()),
+                    )
+                    .set_default_node_attributes(
+                        NodeAttributes::default().style(vec![NodeStyles::Filled]),
+                    )
+                    .chain(vec![
+                        Node::new(Identifier::from_str("b0").unwrap()),
+                        Node::new(Identifier::from_str("b1").unwrap()),
+                        Node::new(Identifier::from_str("b2").unwrap()),
+                        Node::new(Identifier::from_str("b3").unwrap()),
+                    ]),
+            )
+            .add_node(
+                Node::new(Identifier::from_str("start").unwrap())
+                    .set_attributes(NodeAttributes::default().shape(Shape::m_diamond())),
+            )
+            .add_node(
+                Node::new(Identifier::from_str("end").unwrap())
+                    .set_attributes(NodeAttributes::default().shape(Shape::m_square())),
+            )
+            .add_edge_between(
+                Identifier::from_str("a1").unwrap(),
+                Identifier::from_str("b3").unwrap(),
+            )
+            .add_edge_between(
+                Identifier::from_str("b2").unwrap(),
+                Identifier::from_str("a3").unwrap(),
+            )
+            .add_edge_between(
+                Identifier::from_str("b2").unwrap(),
+                Identifier::from_str("a3").unwrap(),
+            )
+            .add_edge_between(
+                Identifier::from_str("a3").unwrap(),
+                Identifier::from_str("a0").unwrap(),
+            )
+            .add_edge_between(
+                Identifier::from_str("a3").unwrap(),
+                Identifier::from_str("end").unwrap(),
+            )
+            .add_edge_between(
+                Identifier::from_str("b3").unwrap(),
+                Identifier::from_str("end").unwrap(),
+            );
 
         println!("{}", root);
     }
