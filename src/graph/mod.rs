@@ -7,9 +7,7 @@ More detailed description, with
 
  */
 
-use crate::attributes::{
-    Attributes, ClusterAttributes, EdgeAttributes, GraphAttributes, NodeAttributes, Styled,
-};
+use crate::attributes::{Attributes, EdgeAttributes, GraphAttributes, NodeAttributes, Styled};
 use crate::{Edge, Identified, Identifier, Node};
 use std::fmt::Display;
 
@@ -102,15 +100,6 @@ pub struct Edges<'a> {
 pub struct SubGraphs<'a> {
     iter: std::slice::Iter<'a, SubGraphKind>,
 }
-
-#[derive(Clone, Debug)]
-pub struct RootGraph(GraphImpl<GraphAttributes>);
-
-#[derive(Clone, Debug)]
-pub struct SubGraph(GraphImpl<GraphAttributes>);
-
-#[derive(Clone, Debug)]
-pub struct Cluster(GraphImpl<ClusterAttributes>);
 
 // ------------------------------------------------------------------------------------------------
 // Public Functions
@@ -337,7 +326,7 @@ macro_rules! impl_graph_trait_for {
         }
 
         impl $type {
-            fn set_directed(self, directed: bool) -> Self {
+            pub(crate) fn set_directed(self, directed: bool) -> Self {
                 let mut self_mut = self;
                 self_mut.0.sub_graphs = self_mut
                     .0
@@ -398,7 +387,7 @@ impl SubGraphKind {
         matches!(self, Self::Cluster(_))
     }
 
-    fn set_directed(self, directed: bool) -> Self {
+    pub(crate) fn set_directed(self, directed: bool) -> Self {
         match self {
             Self::Graph(v) => Self::Graph(v.set_directed(directed)),
             Self::Cluster(v) => Self::Cluster(v.set_directed(directed)),
@@ -436,110 +425,6 @@ impl<'a> Iterator for SubGraphs<'a> {
     }
 }
 
-// ------------------------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------------------
-
-impl Default for RootGraph {
-    fn default() -> Self {
-        let inner: GraphImpl<GraphAttributes> = GraphImpl::anonymous(GraphImplKind::Root(false));
-        Self(inner)
-    }
-}
-
-impl Display for RootGraph {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_strict() {
-            write!(f, "strict ")?;
-        }
-        if self.is_directed() {
-            write!(f, "di")?;
-        }
-        writeln!(f, "graph {} {{", self.id())?;
-        display_graph_common(self, f)?;
-        writeln!(f, "}}")
-    }
-}
-
-impl_graph_trait_for!(RootGraph, GraphAttributes);
-
-impl RootGraph {
-    pub fn anonymous(strict: bool, directed: bool) -> Self {
-        Self(GraphImpl::anonymous(GraphImplKind::Root(strict))).set_directed(directed)
-    }
-
-    pub fn new(id: Identifier, strict: bool, directed: bool) -> Self {
-        Self(GraphImpl::new(GraphImplKind::Root(strict), id)).set_directed(directed)
-    }
-
-    pub fn is_strict(&self) -> bool {
-        match self.0.kind {
-            GraphImplKind::Root(v) => v,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn is_directed(&self) -> bool {
-        self.0.directed
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Default for SubGraph {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl Display for SubGraph {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "subgraph {} {{", self.id())?;
-        display_graph_common(self, f)?;
-        writeln!(f, "}}")
-    }
-}
-
-impl_graph_trait_for!(SubGraph, GraphAttributes);
-
-impl SubGraph {
-    pub fn anonymous() -> Self {
-        Self(GraphImpl::anonymous(GraphImplKind::Graph))
-    }
-
-    pub fn new(id: Identifier) -> Self {
-        Self(GraphImpl::new(GraphImplKind::Graph, id))
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-
-impl Default for Cluster {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl Display for Cluster {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "subgraph  cluster_{} {{", self.id())?;
-        display_graph_common(self, f)?;
-        writeln!(f, "}}")
-    }
-}
-
-impl_graph_trait_for!(Cluster, ClusterAttributes);
-
-impl Cluster {
-    pub fn anonymous() -> Self {
-        Self(GraphImpl::anonymous(GraphImplKind::Cluster))
-    }
-
-    pub fn new(id: Identifier) -> Self {
-        Self(GraphImpl::new(GraphImplKind::Cluster, id))
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 
 impl Default for GraphImplKind {
@@ -647,3 +532,12 @@ where
 // ------------------------------------------------------------------------------------------------
 // Modules
 // ------------------------------------------------------------------------------------------------
+
+pub mod root;
+pub use root::RootGraph;
+
+pub mod sub_graph;
+pub use sub_graph::SubGraph;
+
+pub mod cluster;
+pub use cluster::Cluster;
