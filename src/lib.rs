@@ -100,11 +100,11 @@ impl Identifier {
     }
 
     pub fn new_node() -> Self {
-        Self(format!("N{}", SequenceGenerator::default().next_id()))
+        Self(format!("n{}", SequenceGenerator::default().next_id()))
     }
 
     pub fn new_edge() -> Self {
-        Self(format!("E{}", SequenceGenerator::default().next_id()))
+        Self(format!("e{}", SequenceGenerator::default().next_id()))
     }
 
     pub fn new_graph() -> Self {
