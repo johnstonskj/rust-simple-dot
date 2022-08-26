@@ -174,6 +174,9 @@ digraph G {
 
 ## Changes
 
+**Version 0.1.1**
+
+* Reworked auto ID generation to create Cluster, Graph, node, and edge IDs.
 
 **Version 0.1.0**
 
