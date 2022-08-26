@@ -34,6 +34,14 @@ where
     write_root_graph(graph, writer, &indenter)
 }
 
+pub fn write_graph_to_string(graph: &RootGraph) -> Result<String, Error> {
+    use std::io::Cursor;
+    let mut buffer = Cursor::new(Vec::new());
+
+    write_graph(graph, &mut buffer)?;
+
+    Ok(String::from_utf8(buffer.into_inner())?)
+}
 // ------------------------------------------------------------------------------------------------
 // Private Types
 // ------------------------------------------------------------------------------------------------

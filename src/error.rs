@@ -26,6 +26,9 @@ pub enum Error {
     IoError {
         source: std::io::Error,
     },
+    Utf8Error {
+        source: std::string::FromUtf8Error,
+    },
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -43,6 +46,11 @@ pub fn invalid_value(type_name: &str, value: &impl Debug) -> Error {
 #[inline]
 pub fn io_error(source: std::io::Error) -> Error {
     Error::IoError { source }
+}
+
+#[inline]
+pub fn utf8_error(source: std::string::FromUtf8Error) -> Error {
+    Error::Utf8Error { source }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -64,7 +72,11 @@ impl Display for Error {
                     value_as_string,
                 } => format!("Invalid value `{}` for type {}", value_as_string, type_name),
                 Error::IoError { source } =>
-                    format!("An I/O error occurred, source: `{:?}`", source),
+                    format!("An I/O error occurred; source: `{:?}`", source),
+                Error::Utf8Error { source } => format!(
+                    "An error occurred converting to UTF-8 text; source: `{:?}`",
+                    source
+                ),
             }
         )
     }
@@ -74,6 +86,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::IoError { source } => Some(source),
+            Error::Utf8Error { source } => Some(source),
             _ => None,
         }
     }
@@ -82,6 +95,12 @@ impl std::error::Error for Error {
 impl From<std::io::Error> for Error {
     fn from(source: std::io::Error) -> Self {
         io_error(source)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(source: std::string::FromUtf8Error) -> Self {
+        utf8_error(source)
     }
 }
 
