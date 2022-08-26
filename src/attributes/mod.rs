@@ -1736,7 +1736,7 @@ impl std::fmt::Display for LabelString {
         if self
             .0
             .chars()
-            .any(|c| c.is_whitespace() || c.is_control() || c == '"')
+            .any(|c| !c.is_ascii() || c.is_whitespace() || c.is_control() || c == '"')
         {
             write!(f, "{:?}", self.0)
         } else {
