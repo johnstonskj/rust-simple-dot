@@ -58,7 +58,6 @@ macro_rules! string_newtype {
     };
 }
 
-
 macro_rules! styled_common_impl {
     ($type:ty) => {
         impl Default for $type {
