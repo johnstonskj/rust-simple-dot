@@ -142,15 +142,6 @@ macro_rules! impl_graph_trait_for {
             fn id(&self) -> &Identifier {
                 &self.0.id
             }
-
-            fn set_id(self, id: Identifier) -> Self
-            where
-                Self: Sized,
-            {
-                let mut self_mut = self;
-                self_mut.0.id = id;
-                self_mut
-            }
         }
 
         impl Styled<$attr_type> for $type {
@@ -443,7 +434,7 @@ where
         Self {
             kind: Default::default(),
             directed: false,
-            id: Identifier::new_auto(),
+            id: Identifier::new_graph(),
             attributes: Default::default(),
             default_graph_attributes: Default::default(),
             default_node_attributes: Default::default(),

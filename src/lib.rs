@@ -49,7 +49,7 @@ More detailed description, with
     dyn_drop,
 )]
 
-use unique_id::string::StringGenerator;
+use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;
 
 #[macro_use]
@@ -61,21 +61,6 @@ mod macros;
 
 pub trait Identified {
     fn id(&self) -> &Identifier;
-
-    fn set_id(self, id: Identifier) -> Self
-    where
-        Self: Sized;
-
-    fn set_id_auto(self, prefix: Identifier) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_id(Identifier::new_unchecked(&format!(
-            "{}{}",
-            prefix,
-            StringGenerator::default().next_id()
-        )))
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -114,8 +99,20 @@ impl Identifier {
         Self(s.to_string())
     }
 
-    pub fn new_auto() -> Self {
-        Self(format!("A{}", StringGenerator::default().next_id()))
+    pub fn new_node() -> Self {
+        Self(format!("N{}", SequenceGenerator::default().next_id()))
+    }
+
+    pub fn new_edge() -> Self {
+        Self(format!("E{}", SequenceGenerator::default().next_id()))
+    }
+
+    pub fn new_graph() -> Self {
+        Self(format!("G{}", SequenceGenerator::default().next_id()))
+    }
+
+    pub fn new_cluster_graph() -> Self {
+        Self(format!("C{}", SequenceGenerator::default().next_id()))
     }
 
     pub fn prefix(self, prefix: Identifier) -> Self {

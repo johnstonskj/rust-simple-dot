@@ -83,15 +83,6 @@ impl Identified for Node {
     fn id(&self) -> &Identifier {
         &self.id
     }
-
-    fn set_id(self, id: Identifier) -> Self
-    where
-        Self: Sized,
-    {
-        let mut self_mut = self;
-        self_mut.id = id;
-        self_mut
-    }
 }
 
 impl Styled<NodeAttributes> for Node {
