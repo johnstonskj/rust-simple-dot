@@ -6,7 +6,7 @@ authors = ["Simon Johnston <johnstonskj@gmail.com>"]
 edition = "2021"
 documentation = "https://docs.rs/simple_dot/"
 repository = "https://github.com/johnstonskj/simple_dot.git"
-license = "MIT"
+license-file = "LICENSE"
 readme = "README.md"
 publish = true
 
